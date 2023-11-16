@@ -1,0 +1,7 @@
+---
+applications:
+  - name: nodemicro
+    random-route: true
+    memory: 512M
+    buildpacks:
+      - nodejs_buildpack
