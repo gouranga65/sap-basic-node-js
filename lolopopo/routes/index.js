@@ -2,61 +2,52 @@ var express = require("express");
 var router = express.Router();
 module.exports = router;
 const userModel = require("./users");
+const localStrategy = require("passport-local");
+const passport = require("passport");
+passport.use(new localStrategy(userModel.authenticate()));
 
 /* GET all user data */
 router.get("/", async function (req, res, next) {
-  let getAll = await userModel.find();
-  res.send(getAll);
+  res.render("index");
 });
-// creating users data
-router.get("/created", async function (req, res) {
-  let userData = await userModel.create({
-    username: "sundar01",
-    name: "sundar",
-    description: "Lorem ipsum dolor sit amet",
-    categories: ["ai", "ml", "java"],
+router.get("/profile", isLoggedIn, function (req, res, next) {
+  res.render("profile");
+});
+router.post("/register", function (req, res) {
+  var userData = new userModel({
+    username: req.body.username,
+    secret: req.body.secret,
+    // password:req.body.password
   });
-  res.send(userData);
+  userModel
+    .register(userData, req.body.password)
+    .then(function (registereduser) {
+      passport.authenticate("local")(req, res, function () {
+        res.redirect("/profile");
+      });
+    });
 });
-// case sensetive search
-router.get("/findUser", async function (req, res) {
-  // below code means which contains "o" in user names
-  // let regex = new RegExp("o", "i");
-  // below code exact matching "^" mean starting "$" mean ending
-  let regex = new RegExp("^Sundar01$", "i");
-  let user = await userModel.find({ username: regex });
-  res.send(user);
-});
-// find by categories
-router.get("/findCategories", async function (req, res) {
-  let categoriesValues = await userModel.find({
-    categories: { $all: ["ruby"] },
+router.post(
+  "/login",
+  passport.authenticate("local", {
+    successRedirect: "/profile",
+    failureRedirect: "/",
+  }),
+  function (req, res) {}
+);
+
+router.get("/logout", function (req, res, next) {
+  req.logout(function (err) {
+    if (err) {
+      return next(err);
+    }
+    res.redirect("/");
   });
-  res.send(categoriesValues);
 });
-// searching on a sepcific date range
-router.get("/date", async function (req, res) {
-  let startDate = new Date("2023-11-26");
-  let endDate = new Date("2023-11-27");
-  let userBydate = await userModel.find({
-    datecreated: { $gte: startDate, $lte: endDate },
-  });
-  res.send(userBydate);
-});
-// exist any field or not
-router.get("/exist", async function (req, res) {
-  let existFields = await userModel.find({ surname: { $exists: true } });
-  res.send(existFields);
-});
-// find document in specific field length
-router.get("/okok", async function (req, res) {
-  let existFields = await userModel.find({
-    $expr: {
-      $and: [
-        { $gte: [{  $strLenCP: "$name" }, 0] },
-        { $lte: [{  $strLenCP: "$name" }, 4] },
-      ],
-    },
-  });
-  res.send(existFields);
-});
+
+function isLoggedIn(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect("/");
+}
